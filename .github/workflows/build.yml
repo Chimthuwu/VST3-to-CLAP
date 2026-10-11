@@ -14,11 +14,11 @@ jobs:
       matrix:
         include:
           - os: ubuntu-24.04
-            platform: Linux x64
+            platform: Linux-x64
           - os: macos-14
-            platform: macOS universal
+            platform: macOS-universal
           - os: windows-2022
-            platform: Windows x64
+            platform: Windows-x64
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -48,7 +48,7 @@ jobs:
         run: |
           version="${GITHUB_REF_NAME#v}"
           case "$GITHUB_REF" in refs/tags/v*) ;; *) version="$(git rev-parse --short HEAD)" ;; esac
-          stage="vst3-to-clap - ${{ matrix.platform }} v${version}"
+          stage="vst3-to-clap-${{ matrix.platform }}-v${version}"
           mkdir -p "dist/$stage"
           if [ "$RUNNER_OS" == "Windows" ]; then
             cp build/Release/vst3-to-clap.exe build/Release/vst3-to-clap-wrapper.clap "dist/$stage/"
