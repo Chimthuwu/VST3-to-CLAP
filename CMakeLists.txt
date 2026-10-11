@@ -16,6 +16,13 @@ if(APPLE)
     endif()
 endif()
 
+if(WIN32)
+    # windows.h defines min/max as macros, which breaks std::max and friends.
+    # Kept to NOMINMAX alone: WIN32_LEAN_AND_MEAN would also apply to the
+    # vendored VST3 hosting sources compiled below.
+    add_compile_definitions(NOMINMAX)
+endif()
+
 option(V3C_BUILD_TESTS "Build the test host" ON)
 
 # ---------------------------------------------------------------------------
