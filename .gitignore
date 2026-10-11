@@ -1,0 +1,8 @@
+build*/
+external/
+.vscode/
+.idea/
+*.swp
+
+# prebuilt binaries ship as GitHub Release assets, not in the tree
+bin/
