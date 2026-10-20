@@ -35,15 +35,33 @@ This produces, in `build/`:
 | file | what it is |
 |---|---|
 | `vst3-to-clap-wrapper.clap` | the wrapper (a file on Linux/Windows, a bundle on macOS) |
-| `vst3-to-clap` | the converter; it looks for the wrapper next to itself |
-| `clap-test-host`, `clap-gui-test` | headless and X11 test hosts (Linux), optional |
+| `vst3-to-clap` | the command-line converter; it looks for the wrapper next to itself |
+| `tools/vst3-to-clap-ui.html` | browser-based converter in the source and release archives |
+| `clap-test-host` | headless load/processing test host, optional |
 
 A GitHub Actions workflow (`.github/workflows/build.yml`) builds Linux, macOS (universal) and
 Windows binaries.
 
+## Use the graphical converter
+
+The cross-platform, browser-based converter is `tools/vst3-to-clap-ui.html`. Open it in
+Chrome, Edge, or Safari (no server or account required), choose the matching wrapper file
+(Windows/Linux) or wrapper bundle folder (macOS), plus a `.vst3` bundle folder, then build the
+package. Conversion happens entirely on your computer. It downloads a ZIP containing the patched `.clap` and the original `.vst3` beside
+it; extract both together into your host's CLAP folder. The wrapper must match the host's OS
+and CPU architecture. The UI is included at the root of release archives. macOS bundles need
+ad-hoc re-signing after patching; the UI shows the `codesign` command after conversion.
+
+**Troubleshooting a Windows CLAP load:** Windows release archives also include
+`clap-test-host.exe`. Run `clap-test-host.exe "C:\path\to\MyPlugin.clap"` to exercise the generated
+file outside Bitwig and print Windows loader errors (including missing DLLs and architecture
+mismatches). To only check whether the CLAP binary can be loaded, append `--load-only`. A
+successful headless load does not replace testing in your DAW, but a failure provides useful
+diagnostics.
+
 ## Two ways to use it
 
-**1. Converter (recommended).** `vst3-to-clap <plugin.vst3>` copies the wrapper and writes
+**1. Command-line converter.** `vst3-to-clap <plugin.vst3>` copies the wrapper and writes
 the VST3's location (and optionally one class) into a reserved block inside the copy. The
 result is a normal, self-contained `.clap` you drop into your CLAP folder
 (`~/.clap`, `~/Library/Audio/Plug-Ins/CLAP`, `%COMMONPROGRAMFILES%\CLAP`).

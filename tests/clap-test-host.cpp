@@ -181,7 +181,12 @@ static void testPlugin(const clap_plugin_factory_t* factory, const clap_plugin_d
 	CHECK(p, "create_plugin returned null");
 	if (!p)
 		return;
-	CHECK(p->init(p), "init failed");
+	if (!p->init(p))
+	{
+		CHECK(false, "init failed");
+		p->destroy(p);
+		return;
+	}
 
 	auto audioPorts = static_cast<const clap_plugin_audio_ports_t*>(p->get_extension(p, CLAP_EXT_AUDIO_PORTS));
 	auto notePorts = static_cast<const clap_plugin_note_ports_t*>(p->get_extension(p, CLAP_EXT_NOTE_PORTS));
@@ -524,7 +529,7 @@ int main(int argc, char** argv)
 {
 	if (argc < 2)
 	{
-		std::fprintf(stderr, "usage: clap-test-host <plugin.clap> [plugin-id]\n");
+		std::fprintf(stderr, "usage: clap-test-host <plugin.clap> [plugin-id|--load-only]\n");
 		return 2;
 	}
 	std::string path = argv[1];
@@ -538,7 +543,24 @@ int main(int argc, char** argv)
 #endif
 #if defined(_WIN32)
 	HMODULE lib = LoadLibraryA(binary.c_str());
+	if (!lib)
+	{
+		const DWORD error = GetLastError();
+		char* message = nullptr;
+		const DWORD length = FormatMessageA(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM |
+		                                        FORMAT_MESSAGE_IGNORE_INSERTS,
+		                                    nullptr, error, 0,
+		                                    reinterpret_cast<char*>(&message), 0, nullptr);
+		std::fprintf(stderr, "LoadLibraryA failed for %s (Windows error %lu)%s%s\n", binary.c_str(),
+		             static_cast<unsigned long>(error), length ? ": " : "",
+		             length ? message : "");
+		if (message)
+			LocalFree(message);
+		std::fprintf(stderr, "This can indicate an invalid CLAP binary, wrong architecture, or a missing dependent DLL. Check the error code above.\n");
+	}
 	auto entry = lib ? reinterpret_cast<const clap_plugin_entry_t*>(GetProcAddress(lib, "clap_entry")) : nullptr;
+	if (lib && !entry)
+		std::fprintf(stderr, "The library loaded but does not export the required symbol 'clap_entry'.\n");
 #else
 	void* lib = dlopen(binary.c_str(), RTLD_LOCAL | RTLD_NOW);
 	if (!lib)
@@ -548,15 +570,39 @@ int main(int argc, char** argv)
 	if (!entry)
 	{
 		std::fprintf(stderr, "cannot load clap_entry from %s\n", path.c_str());
+#if defined(_WIN32)
+		if (lib)
+			FreeLibrary(lib);
+#endif
 		return 1;
 	}
 	if (!entry->init(path.c_str()))
 	{
 		std::fprintf(stderr, "entry init failed\n");
+#if defined(_WIN32)
+		FreeLibrary(lib);
+#endif
 		return 1;
 	}
 	auto factory = static_cast<const clap_plugin_factory_t*>(entry->get_factory(CLAP_PLUGIN_FACTORY_ID));
-	const uint32_t n = factory ? factory->get_plugin_count(factory) : 0;
+	if (!factory)
+	{
+		std::fprintf(stderr, "CLAP library does not provide the required plug-in factory.\n");
+		entry->deinit();
+#if defined(_WIN32)
+		FreeLibrary(lib);
+#endif
+		return 1;
+	}
+	if (argc > 2 && std::strcmp(argv[2], "--load-only") == 0)
+	{
+		entry->deinit();
+		std::printf("CLAP library loaded and clap_entry initialized successfully.\n");
+		return 0;
+	}
+	const uint32_t n = factory->get_plugin_count(factory);
+	if (n == 0)
+		std::fprintf(stderr, "CLAP library loaded, but it exposed no VST3 classes. The VST3 path may be invalid, its binary may be incompatible, or it may have failed to load.\n");
 	std::printf("%s: %u plugin(s)\n", path.c_str(), n);
 	int tested = 0;
 	for (uint32_t i = 0; i < n; ++i)
@@ -568,6 +614,8 @@ int main(int argc, char** argv)
 		++tested;
 	}
 	entry->deinit();
+	if (tested == 0 && argc > 2)
+		std::fprintf(stderr, "No CLAP plug-in matched id '%s'.\n", argv[2]);
 	std::printf("\n%d plugin(s) tested, %d failure(s)\n", tested, gFailures);
 	return (gFailures == 0 && tested > 0) ? 0 : 1;
 }

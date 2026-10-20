@@ -1,6 +1,12 @@
 cmake_minimum_required(VERSION 3.20)
 project(vst3-to-clap VERSION 1.0.1 LANGUAGES C CXX)
 
+if(MSVC)
+    # CLAP hosts do not deploy the Visual C++ runtime for plug-ins. Statically link
+    # it so released wrappers load on Windows machines without the VC++ redistributable.
+    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+endif()
+
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
