@@ -1,0 +1,269 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VST3 to CLAP</title>
+<style>
+:root { color-scheme: dark; font: 16px/1.5 system-ui, sans-serif; background: #111318; color: #edf0f7; }
+* { box-sizing: border-box; }
+body { margin: 0; padding: 40px 20px; }
+main { max-width: 720px; margin: auto; padding: 32px; border: 1px solid #303644; border-radius: 16px; background: #191d25; box-shadow: 0 18px 60px #0005; }
+h1 { margin: 0 0 8px; font-size: 2rem; }
+.lead, .hint { color: #aab2c2; }
+.lead { margin: 0 0 28px; }
+label { display: block; margin: 20px 0 8px; font-weight: 650; }
+input[type=file], input[type=text] { width: 100%; padding: 12px; border: 1px solid #424a5b; border-radius: 8px; background: #10131a; color: inherit; }
+input[type=file] { cursor: pointer; }
+.hint { margin: 6px 0 0; font-size: .88rem; }
+.row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+button { margin-top: 24px; padding: 12px 18px; border: 0; border-radius: 8px; background: #a8ef75; color: #151a12; font: inherit; font-weight: 750; cursor: pointer; }
+button:disabled { opacity: .55; cursor: wait; }
+#status { min-height: 2em; margin-top: 18px; white-space: pre-wrap; color: #c6d0e1; }
+#download { display: inline-block; margin-top: 12px; padding: 12px 18px; border-radius: 8px; background: #a8ef75; color: #151a12; font-weight: 750; text-decoration: none; }
+#download[hidden] { display: none; }
+.notice { margin-top: 24px; padding: 14px; border-radius: 8px; background: #252b36; color: #c5cede; font-size: .9rem; }
+@media (max-width: 600px) { body { padding: 16px 10px; } main { padding: 22px 16px; } .row { grid-template-columns: 1fr; gap: 0; } }
+</style>
+</head>
+<body>
+<main>
+  <h1>VST3 → CLAP</h1>
+  <p class="lead">Make a portable CLAP package. Everything runs locally in your browser; your plug-in files are not uploaded anywhere.</p>
+
+  <label for="wrapper">Wrapper file (.clap) — Windows/Linux</label>
+  <input id="wrapper" type="file" accept=".clap,application/octet-stream">
+  <label for="wrapperBundle">Wrapper bundle folder (.clap) — macOS</label>
+  <input id="wrapperBundle" type="file" webkitdirectory directory multiple>
+  <p class="hint">Choose the matching OS and CPU architecture. For macOS, choose the <code>vst3-to-clap-wrapper.clap</code> folder. Folder selection is supported in Chrome, Edge, and Safari.</p>
+
+  <label for="bundle">VST3 bundle folder</label>
+  <input id="bundle" type="file" webkitdirectory directory multiple>
+  <p class="hint">Choose the <code>.vst3</code> folder itself. The output ZIP includes a copy so its CLAP can find it.</p>
+
+  <div class="row">
+    <div>
+      <label for="class">Optional class name or UID</label>
+      <input id="class" type="text" placeholder="Leave blank to expose every class">
+    </div>
+    <div>
+      <label for="name">Output plug-in name</label>
+      <input id="name" type="text" placeholder="Inferred from the VST3 bundle">
+    </div>
+  </div>
+  <button id="convert" type="button">Build CLAP package</button>
+  <div id="status" role="status" aria-live="polite"></div>
+  <a id="download" hidden>Download CLAP package</a>
+  <div class="notice"><strong>Install:</strong> extract the downloaded ZIP into your host's CLAP plug-in folder. Keep the <code>.clap</code> file/bundle and adjacent <code>.vst3</code> folder together. The wrapper must match your OS and CPU architecture. On macOS, patching invalidates the bundle signature; the UI displays the command to ad-hoc sign the bundle in Terminal after extraction.</div>
+</main>
+<script>
+(() => {
+  'use strict';
+  const marker = new TextEncoder().encode('@@VST3-TO-CLAP:EMBEDDED-CONFIG:v1@@');
+  const blockSize = 4096;
+  const wrapperInput = document.querySelector('#wrapper');
+  const bundleInput = document.querySelector('#bundle');
+  const classInput = document.querySelector('#class');
+  const nameInput = document.querySelector('#name');
+  const button = document.querySelector('#convert');
+  const status = document.querySelector('#status');
+  const download = document.querySelector('#download');
+  let downloadUrl = '';
+  const encoder = new TextEncoder();
+
+  const crcTable = new Uint32Array(256);
+  for (let n = 0; n < 256; n++) {
+    let c = n;
+    for (let k = 0; k < 8; k++) c = (c & 1) ? (0xedb88320 ^ (c >>> 1)) : (c >>> 1);
+    crcTable[n] = c >>> 0;
+  }
+  const crc32 = async (file, progress) => {
+    let crc = 0xffffffff;
+    const reader = file.stream().getReader();
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      for (let i = 0; i < value.length; i++) crc = crcTable[(crc ^ value[i]) & 255] ^ (crc >>> 8);
+      progress(value.length);
+    }
+    return (crc ^ 0xffffffff) >>> 0;
+  };
+  const u16 = (v) => [v & 255, (v >>> 8) & 255];
+  const u32 = (v) => [v & 255, (v >>> 8) & 255, (v >>> 16) & 255, (v >>> 24) & 255];
+  const safeName = (s) => s.replace(/[^A-Za-z0-9._-]/g, '-').replace(/^[.-]+|[.-]+$/g, '').trim();
+  const fail = (message) => { status.textContent = message; };
+
+  async function buildZip(files) {
+    if (files.length > 65535) throw new Error('The selected plug-in bundles contain too many files for a ZIP package.');
+    const parts = [];
+    const central = [];
+    let offset = 0;
+    let fileCount = 0;
+    let workDone = 0;
+    const total = files.reduce((sum, entry) => sum + entry.file.size, 0);
+    const progress = (n) => {
+      workDone += n;
+      status.textContent = `Preparing package… ${total ? Math.min(100, Math.floor(workDone * 100 / total)) : 100}%`;
+    };
+    const now = new Date();
+    const dosTime = (now.getHours() << 11) | (now.getMinutes() << 5) | (Math.floor(now.getSeconds() / 2));
+    const dosDate = ((Math.max(1980, now.getFullYear()) - 1980) << 9) | ((now.getMonth() + 1) << 5) | now.getDate();
+
+    for (const entry of files) {
+      const pathBytes = encoder.encode(entry.path);
+      if (pathBytes.length > 65535 || entry.file.size > 0xffffffff || offset > 0xffffffff)
+        throw new Error('A ZIP entry exceeds the classic ZIP size limit (4 GB).');
+      const checksum = await crc32(entry.file, progress);
+      const size = entry.file.size;
+      fileCount++;
+      const local = new Uint8Array([
+        ...u32(0x04034b50), ...u16(20), ...u16(0x0800), ...u16(0), ...u16(dosTime), ...u16(dosDate),
+        ...u32(checksum), ...u32(size), ...u32(size), ...u16(pathBytes.length), ...u16(0), ...pathBytes,
+      ]);
+      parts.push(local, entry.file);
+      const headerOffset = offset;
+      offset += local.length + size;
+      const directory = new Uint8Array([
+        ...u32(0x02014b50), ...u16(0x0314), ...u16(20), ...u16(0x0800), ...u16(0), ...u16(dosTime), ...u16(dosDate),
+        ...u32(checksum), ...u32(size), ...u32(size), ...u16(pathBytes.length), ...u16(0), ...u16(0),
+        ...u16(0), ...u16(0), ...u32(((entry.mode || 0o100644) << 16) >>> 0), ...u32(headerOffset), ...pathBytes,
+      ]);
+      central.push(directory);
+    }
+    const centralOffset = offset;
+    let centralSize = 0;
+    for (const header of central) { parts.push(header); centralSize += header.length; }
+    if (offset + centralSize > 0xffffffff) throw new Error('The complete package exceeds the classic ZIP size limit (4 GB).');
+    parts.push(new Uint8Array([
+      ...u32(0x06054b50), ...u16(0), ...u16(0), ...u16(fileCount), ...u16(fileCount),
+      ...u32(centralSize), ...u32(centralOffset), ...u16(0),
+    ]));
+    return new Blob(parts, { type: 'application/zip' });
+  }
+
+  button.addEventListener('click', async () => {
+    button.disabled = true;
+    download.hidden = true;
+    if (downloadUrl) URL.revokeObjectURL(downloadUrl);
+    downloadUrl = '';
+    try {
+      const wrapperFile = wrapperInput.files[0];
+      const wrapperBundleFiles = Array.from(document.querySelector('#wrapperBundle').files || []);
+      const selected = Array.from(bundleInput.files || []);
+      if (Boolean(wrapperFile) === Boolean(wrapperBundleFiles.length))
+        throw new Error('Choose exactly one wrapper: a .clap file (Windows/Linux) or a .clap bundle folder (macOS).');
+      if (wrapperBundleFiles.some((file) => {
+        const path = file.webkitRelativePath || '';
+        return !path.startsWith((wrapperBundleFiles[0].webkitRelativePath || '').split('/')[0] + '/');
+      })) throw new Error('Select exactly one wrapper bundle folder.');
+      if (!selected.length) throw new Error('Choose a VST3 bundle folder.');
+      const wrapperName = wrapperFile ? wrapperFile.name : (wrapperBundleFiles[0].webkitRelativePath || '').split('/')[0];
+      if (!wrapperName.toLowerCase().endsWith('.clap')) throw new Error('The selected wrapper must be a .clap file or folder.');
+      const firstPath = selected[0].webkitRelativePath || selected[0].name;
+      const root = firstPath.includes('/') ? firstPath.split('/')[0] : selected[0].name;
+      if (!root.toLowerCase().endsWith('.vst3')) throw new Error('Select a folder whose name ends in .vst3.');
+      if (selected.some((file) => {
+        const path = file.webkitRelativePath || file.name;
+        return path !== root && !path.startsWith(root + '/');
+      })) throw new Error('Select exactly one VST3 bundle folder.');
+      const hasVst3Module = selected.some((file) => {
+        const relative = (file.webkitRelativePath || '').slice(root.length + 1);
+        return /\.vst3$/i.test(relative) ||
+          /(?:^|\/)Contents\/MacOS\/[^/]+$/i.test(relative) ||
+          /(?:^|\/)[^/]+-linux\/[^/]+(?:\.so)?$/i.test(relative);
+      });
+      if (!hasVst3Module) throw new Error('The selected VST3 package contains no recognizable Windows, macOS, or Linux module binary.');
+
+      status.textContent = 'Reading wrapper…';
+      const outputName = safeName(nameInput.value.trim() || root.replace(/\.vst3$/i, ''));
+      if (!outputName) throw new Error('Enter a valid output plug-in name.');
+      const clapPath = `${outputName}.clap`;
+      const requestedClass = classInput.value.trim();
+      const normalizedClass = requestedClass.length === 32 && /^[0-9a-f]+$/i.test(requestedClass)
+        ? requestedClass.toUpperCase()
+        : requestedClass;
+      const wrapperFiles = wrapperFile
+        ? [{ path: wrapperFile.name, file: wrapperFile }]
+        : wrapperBundleFiles.map((file) => ({
+            path: (file.webkitRelativePath || '').slice(wrapperName.length + 1), file,
+          }));
+      if (wrapperFiles.some((file) => !file.path || file.path.startsWith('/') || file.path.split('/').some((part) => part === '..')))
+        throw new Error('The selected wrapper bundle contains an unsafe relative path.');
+      const candidates = wrapperFile
+        ? wrapperFiles
+        : wrapperFiles.filter((file) => file.path.split('/').includes('MacOS'));
+      let patchedBinaryCount = 0;
+      const classFilter = encoder.encode(normalizedClass);
+      const vst3Path = encoder.encode(root);
+      const payload = new Uint8Array(vst3Path.length + 1 + classFilter.length + 1);
+      payload.set(vst3Path, 0);
+      payload.set(classFilter, vst3Path.length + 1);
+      const capacity = blockSize - marker.length;
+      if (payload.length > capacity) throw new Error('The bundle or class name is too long for the wrapper config block.');
+      for (const candidate of candidates) {
+        const bytes = new Uint8Array(await candidate.file.arrayBuffer());
+        const matches = [];
+        outer: for (let i = 0; i <= bytes.length - marker.length; i++) {
+          for (let j = 0; j < marker.length; j++) if (bytes[i + j] !== marker[j]) continue outer;
+          matches.push(i);
+          i += marker.length - 1;
+        }
+        if (!matches.length) continue;
+        for (const at of matches) {
+          const start = at + marker.length;
+          if (start + capacity > bytes.length) throw new Error('The wrapper config block is truncated; use a valid release/build binary.');
+          bytes.fill(0, start, start + capacity);
+          bytes.set(payload, start);
+        }
+        candidate.file = new Blob([bytes]);
+        patchedBinaryCount++;
+      }
+      if (patchedBinaryCount !== 1) throw new Error(patchedBinaryCount ? 'More than one wrapper executable contained the embedded-config marker; choose a single-architecture wrapper.' : 'The selected wrapper has no embedded-config marker. Choose a wrapper from a vst3-to-clap build.');
+      const entries = wrapperFile
+        ? [{ path: clapPath, file: wrapperFiles[0].file, mode: 0o100755 }]
+        : wrapperFiles.map((file) => ({
+            path: `${clapPath}/${file.path}`,
+            file: file.file,
+            mode: file.path.split('/').includes('MacOS') ? 0o100755 : 0o100644,
+          }));
+      if (!wrapperFile) {
+        const plist = wrapperFiles.find((file) => file.path === 'Contents/Info.plist');
+        if (plist) {
+          let text = await plist.file.text();
+          const slug = outputName.replace(/[^A-Za-z0-9]/g, '-');
+          text = text.replaceAll('org.vst3-to-clap.wrapper', `org.vst3-to-clap.${slug}`);
+          text = text.replace(/(<key>CFBundleName<\/key>\s*<string>)[^<]*(<\/string>)/, `$1${outputName}$2`);
+          plist.file = new Blob([text]);
+          entries.find((entry) => entry.path === `${clapPath}/${plist.path}`).file = plist.file;
+        }
+        const bundleBinary = wrapperFiles.find((file) => file.path.split('/').includes('MacOS'));
+        if (!bundleBinary) throw new Error('The wrapper bundle contains no Contents/MacOS executable.');
+      }
+      for (const file of selected) {
+        const relative = file.webkitRelativePath ? file.webkitRelativePath.slice(root.length + 1) : file.name;
+        if (!relative || relative.startsWith('/') || relative.split('/').some((part) => part === '..'))
+          throw new Error('The selected VST3 folder contains an unsafe relative file path.');
+        entries.push({
+          path: `${root}/${relative}`,
+          file,
+          mode: relative.split('/').includes('MacOS') ? 0o100755 : 0o100644,
+        });
+      }
+      if (entries.some((entry) => encoder.encode(entry.path).length > 65535)) throw new Error('A bundle file path is too long for ZIP.');
+      const zip = await buildZip(entries);
+      downloadUrl = URL.createObjectURL(zip);
+      download.href = downloadUrl;
+      download.download = `${outputName}-clap-package.zip`;
+      download.textContent = `Download ${outputName}-clap-package.zip`;
+      download.hidden = false;
+      status.textContent = `Package ready. Extract the ZIP into your CLAP folder and keep the .clap and .vst3 together.${wrapperFile ? '' : ` On macOS, re-sign after extraction: codesign --force --sign - "${outputName}.clap"`}`;
+    } catch (error) {
+      fail(error instanceof Error ? error.message : String(error));
+    } finally {
+      button.disabled = false;
+    }
+  });
+})();
+</script>
+</body>
+</html>

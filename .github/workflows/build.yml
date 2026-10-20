@@ -41,6 +41,11 @@ jobs:
       - name: Build
         run: cmake --build build --config Release --parallel
 
+      - name: Smoke-test the Windows CLAP loader
+        if: runner.os == 'Windows'
+        shell: bash
+        run: build/Release/clap-test-host.exe build/Release/vst3-to-clap-wrapper.clap --load-only
+
       # Artifacts are named for humans here, before upload, so release assets
       # never carry toolchain default names.
       - name: Package
@@ -51,14 +56,14 @@ jobs:
           stage="vst3-to-clap-${{ matrix.platform }}-v${version}"
           mkdir -p "dist/$stage"
           if [ "$RUNNER_OS" == "Windows" ]; then
-            cp build/Release/vst3-to-clap.exe build/Release/vst3-to-clap-wrapper.clap "dist/$stage/"
+            cp build/Release/vst3-to-clap.exe build/Release/vst3-to-clap-wrapper.clap build/Release/clap-test-host.exe "dist/$stage/"
           elif [ "$RUNNER_OS" == "macOS" ]; then
-            cp build/vst3-to-clap "dist/$stage/"
+            cp build/vst3-to-clap build/clap-test-host "dist/$stage/"
             cp -R build/vst3-to-clap-wrapper.clap "dist/$stage/"
           else
-            cp build/vst3-to-clap build/vst3-to-clap-wrapper.clap "dist/$stage/"
+            cp build/vst3-to-clap build/vst3-to-clap-wrapper.clap build/clap-test-host "dist/$stage/"
           fi
-          cp README.md LICENSE "dist/$stage/"
+          cp README.md LICENSE tools/vst3-to-clap-ui.html "dist/$stage/"
           # Git Bash on the Windows runner has no `zip`; 7-Zip is preinstalled.
           # Elsewhere `zip` is used so the executable bit survives.
           if [ "$RUNNER_OS" == "Windows" ]; then

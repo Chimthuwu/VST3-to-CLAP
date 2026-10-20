@@ -371,7 +371,7 @@ bool Registry::init(const char* clapPath)
 			fs::path base = fs::u8path(clapPath);
 			p = base.parent_path() / p;
 		}
-		modules.push_back(p.lexically_normal().string());
+		modules.push_back(p.lexically_normal().u8string());
 		classFilter = cfg.classFilter;
 	}
 	else

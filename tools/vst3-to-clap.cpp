@@ -218,7 +218,7 @@ int main(int argc, char** argv)
 	}
 
 	std::error_code ec;
-	fs::path in = fs::absolute(input, ec);
+	fs::path in = fs::absolute(fs::u8path(input), ec);
 	while (!in.empty() && !in.has_filename())
 		in = in.parent_path(); // strip a trailing separator
 	if (!fs::exists(in))
@@ -233,7 +233,7 @@ int main(int argc, char** argv)
 
 	std::cout << "Audio classes in " << in.filename().string() << ":\n";
 	bool filterMatched = false;
-	const int n = listClasses(in.string(), filter, filterMatched);
+	const int n = listClasses(in.u8string(), filter, filterMatched);
 	if (n < 0)
 		return 1;
 	if (n == 0)
@@ -247,7 +247,7 @@ int main(int argc, char** argv)
 
 	fs::path tmpl = templatePath.empty()
 	                    ? executablePath(argv[0]).parent_path() / "vst3-to-clap-wrapper.clap"
-	                    : fs::path(templatePath);
+	                    : fs::u8path(templatePath);
 	if (!fs::exists(tmpl))
 	{
 		std::cerr << "error: wrapper template not found at " << tmpl
@@ -255,8 +255,8 @@ int main(int argc, char** argv)
 		return 1;
 	}
 
-	fs::path out = output.empty() ? fs::current_path() / (in.stem().string() + ".clap")
-	                              : fs::absolute(output);
+	fs::path out = output.empty() ? fs::current_path() / (in.stem().u8string() + ".clap")
+	                              : fs::absolute(fs::u8path(output));
 	fs::create_directories(out.parent_path(), ec);
 
 	// where the wrapper will look for the VST3
