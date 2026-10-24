@@ -28,7 +28,7 @@ repo; prebuilt binaries are gitignored and ship as Release assets instead.
       createInstance fail for every plug-in. Verified with CI build + clap-test-host on
       Free Clip 2, Free Meter, FabFilter Pro-R 2 (load + process audio + state).
       Still open: GHOST fails the state round-trip check (probably plug-in-side); not yet
-      tried in Bitwig/REAPER
+      tried in REAPER. Confirmed working in Bitwig (FabFilter Pro-R 2), 2026-10-24
 - [ ] Cut a new release (v1.0.2) so `app` `npm run fetch-wrapper` gets the fixed wrapper
       (v1.0.1 still has the bug). Previously converted .clap files must be re-converted
 - [ ] Idiot-proofing review of `tools/vst3-to-clap-ui.html` (auto-detect OS/arch,
