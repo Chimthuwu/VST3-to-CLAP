@@ -71,6 +71,7 @@ The app installs here by default. Bitwig, REAPER and other CLAP hosts look in th
 ## ✅ Works with
 
 - 🟢 **Bitwig Studio**: confirmed on Windows with FabFilter Pro-R 2
+- 🟢 **Native Instruments Kontakt**: confirmed working on Windows
 - 🟢 **Any CLAP host**: audio, parameters, automation, MIDI, presets and the plug-in's own window carry over
 - 🟡 **macOS**: builds and converts, not yet tested in a host
 
