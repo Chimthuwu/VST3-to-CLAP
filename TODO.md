@@ -24,11 +24,13 @@ repo; prebuilt binaries are gitignored and ship as Release assets instead.
 
 - [x] `app/` Electron converter (scan, multi-select, installs to CLAP folder). JS patcher verified byte-identical to the C++ CLI. Not yet: packaged build in CI, macOS run, per-class selection
 
-- [ ] **BUG (found 2026-10-24, Windows):** CI-built wrapper (57ea38f) converts fine
-      (`vst3-to-clap.exe` on real VST3s) but `clap-test-host.exe` fails on every
-      plug-in tried (7 JUCE-based VST3s) with "Could not create component"
-      (`src/plugin.cpp:251`, `factory.createInstance` returns null). Investigate
-      (COM/OLE init? module load path? needs a non-JUCE control such as an MDA build)
+- [x] **FIXED (cf28de4):** Windows class-UID parsing bug (`registry.cpp` addEntry) made
+      createInstance fail for every plug-in. Verified with CI build + clap-test-host on
+      Free Clip 2, Free Meter, FabFilter Pro-R 2 (load + process audio + state).
+      Still open: GHOST fails the state round-trip check (probably plug-in-side); not yet
+      tried in Bitwig/REAPER
+- [ ] Cut a new release (v1.0.2) so `app` `npm run fetch-wrapper` gets the fixed wrapper
+      (v1.0.1 still has the bug). Previously converted .clap files must be re-converted
 - [ ] Idiot-proofing review of `tools/vst3-to-clap-ui.html` (auto-detect OS/arch,
       one-click install, where-to-put-the-.clap guide, macOS re-sign helper)
 - [ ] AAX feasibility write-up (SDK is closed/NDA — confirm)
