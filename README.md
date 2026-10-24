@@ -189,7 +189,7 @@ tests/             headless and GUI test hosts
 
 ## Credits
 
-Original creator: therealunclescunter (Discord ID: 1327648622673920073).
+Original creator: [therealunclescunter](https://github.com/unclescunter) (Discord ID: 1327648622673920073).
 
 ## License
 
