@@ -180,6 +180,10 @@ tools/             the vst3-to-clap converter
 tests/             headless and GUI test hosts
 ```
 
+## Credits
+
+Original creator: [therealunclescunter](https://github.com/therealunclescunter).
+
 ## License
 
 MIT. The VST3 SDK and CLAP SDK are MIT licensed by their respective authors.
