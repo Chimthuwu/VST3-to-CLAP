@@ -22,6 +22,8 @@ repo; prebuilt binaries are gitignored and ship as Release assets instead.
 
 ## Next
 
+- [x] `app/` Electron converter (scan, multi-select, installs to CLAP folder). JS patcher verified byte-identical to the C++ CLI. Not yet: packaged build in CI, macOS run, per-class selection
+
 - [ ] **BUG (found 2026-10-24, Windows):** CI-built wrapper (57ea38f) converts fine
       (`vst3-to-clap.exe` on real VST3s) but `clap-test-host.exe` fails on every
       plug-in tried (7 JUCE-based VST3s) with "Could not create component"

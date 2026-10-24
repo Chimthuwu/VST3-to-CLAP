@@ -1,0 +1,22 @@
+{
+  "name": "vst3-to-clap-app",
+  "version": "1.0.0",
+  "description": "One-click VST3 to CLAP converter",
+  "main": "main.js",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "fetch-wrapper": "node fetch-wrapper.js",
+    "test": "node test-convert.js",
+    "dist": "electron-builder"
+  },
+  "build": {
+    "appId": "org.vst3-to-clap.app",
+    "productName": "VST3 to CLAP",
+    "files": ["*.js", "*.html", "package.json"],
+    "extraResources": [{ "from": "wrapper", "to": "wrapper" }],
+    "win": { "target": "portable", "artifactName": "VST3 to CLAP - Windows v${version}.${ext}" },
+    "mac": { "target": "dmg", "artifactName": "VST3 to CLAP - macOS v${version}.${ext}" }
+  },
+  "devDependencies": { "electron": "^33.0.0", "electron-builder": "^25.0.0" }
+}
