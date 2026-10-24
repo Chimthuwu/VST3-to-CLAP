@@ -12,10 +12,11 @@ button.alt{background:#2a3040;color:#edf0f7}button:disabled{opacity:.5}
 </style></head><body>
 <h1>VST3 → CLAP</h1>
 <p>Tick the plug-ins you want, press Convert. They're installed straight into your CLAP folder — restart your DAW and rescan.</p>
+<label class="row" style="border:0"><input type="checkbox" id="all"><b>Select all</b></label>
 <div id="list">Scanning…</div>
-<button id="go" disabled>Convert selected</button><button class="alt" id="browse">Add a .vst3 manually…</button>
+<button id="go" disabled>Convert selected</button><button id="goall">Convert all</button><button class="alt" id="browse">Add a .vst3 manually…</button>
 <div id="result"></div>
-<p id="dest"></p>
+<p>Installs to: <b id="dest"></b> <button class="alt" id="chg" style="margin:0 0 0 8px;padding:4px 10px">Change…</button></p>
 <p>The original .vst3 stays where it is and must remain installed — the .clap loads it.</p>
 <script>
 const list=document.getElementById('list'),go=document.getElementById('go'),res=document.getElementById('result');
@@ -26,8 +27,13 @@ function render(){list.innerHTML='';
     const cb=document.createElement('input');cb.type='checkbox';cb.dataset.i=i;cb.onchange=upd;
     const d=document.createElement('div');d.textContent=p.name;
     const s=document.createElement('div');s.className='path';s.textContent=p.path;d.append(s);l.append(cb,d);list.append(l)})}
-function upd(){go.disabled=!list.querySelector('input:checked')}
-(async()=>{const r=await api.scan();plugins=r.plugins;document.getElementById('dest').textContent='Installs to: '+r.clapDir;render()})();
+function upd(){const n=list.querySelectorAll('input:checked').length;go.disabled=!n;go.textContent=n?'Convert selected ('+n+')':'Convert selected';
+  all.checked=n>0&&n===plugins.length}
+const all=document.getElementById('all');
+all.onchange=()=>{list.querySelectorAll('input').forEach(c=>c.checked=all.checked);upd()};
+document.getElementById('chg').onclick=async()=>{document.getElementById('dest').textContent=await api.setDir()};
+document.getElementById('goall').onclick=()=>{all.checked=true;all.onchange();go.click()};
+(async()=>{const r=await api.scan();plugins=r.plugins;document.getElementById('dest').textContent=r.clapDir;render()})();
 document.getElementById('browse').onclick=async()=>{const p=await api.browse();if(!p)return;
   plugins.unshift({name:p.split(/[\\/]/).pop().replace(/\.vst3$/i,''),path:p});render();list.querySelector('input').checked=true;upd()};
 go.onclick=async()=>{go.disabled=true;res.textContent='Converting…';

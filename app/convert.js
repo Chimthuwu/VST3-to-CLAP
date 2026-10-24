@@ -17,7 +17,7 @@ function vst3Folders() {
 }
 
 function clapFolder() {
-  if (process.platform === 'win32') return path.join(process.env.LOCALAPPDATA || os.homedir(), 'Programs', 'Common', 'CLAP');
+  if (process.platform === 'win32') return path.join(process.env.COMMONPROGRAMFILES || 'C:\\Program Files\\Common Files', 'CLAP');
   if (process.platform === 'darwin') return path.join(os.homedir(), 'Library/Audio/Plug-Ins/CLAP');
   return path.join(os.homedir(), '.clap');
 }
@@ -62,7 +62,12 @@ function convert({ vst3, wrapper, outDir, name }) {
   if (!fs.existsSync(vst3)) throw new Error(`Can't find ${vst3}`);
   const outName = (name || path.basename(vst3).replace(/\.vst3$/i, '')).replace(/[<>:"/\\|?*]/g, '-');
   const out = path.join(outDir, `${outName}.clap`);
-  fs.mkdirSync(outDir, { recursive: true });
+  try { fs.mkdirSync(outDir, { recursive: true }); fs.accessSync(outDir, fs.constants.W_OK); }
+  catch (e) {
+    if (e.code === 'EPERM' || e.code === 'EACCES')
+      throw new Error(`No permission to write to ${outDir}. Close the app and run it as administrator, or pick another folder with "Change…".`);
+    throw e;
+  }
   fs.rmSync(out, { recursive: true, force: true });
   if (fs.statSync(wrapper).isDirectory()) {            // macOS bundle
     fs.cpSync(wrapper, out, { recursive: true });

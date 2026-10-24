@@ -251,7 +251,10 @@ void Registry::addEntry(const std::string& path, const std::string& cidHex,
 		if (e->clapId == clapId)
 			return; // same plugin found twice (e.g. user + system folder) - first one wins
 
-	auto uid = VST3::UID::fromString(cidHex, false);
+	// cidHex comes from canonicalCid() (FUID::toString), which is COM-ordered on Windows,
+	// so parse it with the default (platform) format. Passing false scrambles the
+	// UID on Windows and createInstance fails for every plug-in.
+	auto uid = VST3::UID::fromString(cidHex);
 	if (!uid)
 		return;
 
