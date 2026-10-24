@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(vst3-to-clap VERSION 1.0.1 LANGUAGES C CXX)
+project(vst3-to-clap VERSION 1.0.2 LANGUAGES C CXX)
 
 if(MSVC)
     # CLAP hosts do not deploy the Visual C++ runtime for plug-ins. Statically link
