@@ -252,7 +252,7 @@ Requires CMake ≥ 3.20 and a C++17 compiler.
 
 ## 💚 Credits
 
-**Original creator: [therealunclescunter](https://github.com/unclescunter)** (Discord ID: 1327648622673920073)
+**Original creator: [therealunclescunter](https://github.com/unclescunter)**
 
 MIT licensed. The VST3 SDK and CLAP SDK are MIT licensed by their respective authors.<br>
 <sub>VST is a registered trademark of Steinberg Media Technologies GmbH.</sub>
