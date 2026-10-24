@@ -22,6 +22,15 @@ repo; prebuilt binaries are gitignored and ship as Release assets instead.
 
 ## Next
 
+- [ ] **BUG (found 2026-10-24, Windows):** CI-built wrapper (57ea38f) converts fine
+      (`vst3-to-clap.exe` on real VST3s) but `clap-test-host.exe` fails on every
+      plug-in tried (7 JUCE-based VST3s) with "Could not create component"
+      (`src/plugin.cpp:251`, `factory.createInstance` returns null). Investigate
+      (COM/OLE init? module load path? needs a non-JUCE control such as an MDA build)
+- [ ] Idiot-proofing review of `tools/vst3-to-clap-ui.html` (auto-detect OS/arch,
+      one-click install, where-to-put-the-.clap guide, macOS re-sign helper)
+- [ ] AAX feasibility write-up (SDK is closed/NDA — confirm)
+
 - [ ] Test the Windows and macOS builds in a real host. Both now compile in CI
       (MSVC and Apple Clang), but the README's "never run in anger" caveat
       still stands — nothing has loaded them in Bitwig or REAPER yet
