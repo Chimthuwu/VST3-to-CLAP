@@ -182,7 +182,7 @@ tests/             headless and GUI test hosts
 
 ## Credits
 
-Original creator: [therealunclescunter](https://github.com/therealunclescunter).
+Original creator: therealunclescunter.
 
 ## License
 
