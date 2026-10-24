@@ -1,0 +1,39 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><title>VST3 to CLAP</title>
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'unsafe-inline'; script-src 'unsafe-inline'">
+<style>
+:root{color-scheme:dark;font:15px/1.5 system-ui,sans-serif;background:#111318;color:#edf0f7}
+body{margin:0;padding:24px}h1{margin:0 0 4px}p{color:#aab2c2;margin:4px 0 14px}
+#list{max-height:380px;overflow:auto;border:1px solid #303644;border-radius:10px;background:#191d25}
+label.row{display:flex;gap:10px;padding:8px 14px;border-bottom:1px solid #232834;cursor:pointer}
+label.row:hover{background:#202533}.path{color:#7d879a;font-size:.8rem}
+button{padding:11px 18px;border:0;border-radius:8px;background:#a8ef75;color:#151a12;font:inherit;font-weight:700;cursor:pointer;margin:14px 10px 0 0}
+button.alt{background:#2a3040;color:#edf0f7}button:disabled{opacity:.5}
+#result{margin-top:16px;white-space:pre-wrap}.ok{color:#a8ef75}.bad{color:#ff8a80}
+</style></head><body>
+<h1>VST3 → CLAP</h1>
+<p>Tick the plug-ins you want, press Convert. They're installed straight into your CLAP folder — restart your DAW and rescan.</p>
+<div id="list">Scanning…</div>
+<button id="go" disabled>Convert selected</button><button class="alt" id="browse">Add a .vst3 manually…</button>
+<div id="result"></div>
+<p id="dest"></p>
+<p>The original .vst3 stays where it is and must remain installed — the .clap loads it.</p>
+<script>
+const list=document.getElementById('list'),go=document.getElementById('go'),res=document.getElementById('result');
+let plugins=[];
+function render(){list.innerHTML='';
+  if(!plugins.length){list.textContent='No VST3 plug-ins found. Use "Add a .vst3 manually…".';return}
+  plugins.forEach((p,i)=>{const l=document.createElement('label');l.className='row';
+    const cb=document.createElement('input');cb.type='checkbox';cb.dataset.i=i;cb.onchange=upd;
+    const d=document.createElement('div');d.textContent=p.name;
+    const s=document.createElement('div');s.className='path';s.textContent=p.path;d.append(s);l.append(cb,d);list.append(l)})}
+function upd(){go.disabled=!list.querySelector('input:checked')}
+(async()=>{const r=await api.scan();plugins=r.plugins;document.getElementById('dest').textContent='Installs to: '+r.clapDir;render()})();
+document.getElementById('browse').onclick=async()=>{const p=await api.browse();if(!p)return;
+  plugins.unshift({name:p.split(/[\\/]/).pop().replace(/\.vst3$/i,''),path:p});render();list.querySelector('input').checked=true;upd()};
+go.onclick=async()=>{go.disabled=true;res.textContent='Converting…';
+  const sel=[...list.querySelectorAll('input:checked')].map(c=>plugins[c.dataset.i]);
+  const out=await api.convert(sel);res.textContent='';
+  out.forEach(r=>{const d=document.createElement('div');d.className=r.ok?'ok':'bad';
+    d.textContent=r.ok?'✓ '+r.name+' → installed':'✗ '+r.name+': '+r.error;res.append(d)});
+  if(out.some(r=>r.ok))res.append('\nDone. Restart your DAW and rescan plug-ins.');go.disabled=false};
+</script></body></html>

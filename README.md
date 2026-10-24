@@ -59,6 +59,13 @@ mismatches). To only check whether the CLAP binary can be loaded, append `--load
 successful headless load does not replace testing in your DAW, but a failure provides useful
 diagnostics.
 
+## Desktop app (easiest)
+
+`app/` is an Electron app: it lists the VST3s installed on your machine, you tick the ones you
+want, press **Convert**, and the `.clap` files are written straight into your CLAP folder. No
+terminal needed. For development: `cd app && npm install && npm run fetch-wrapper && npm start`
+(`npm run dist` builds an installer/portable exe). It reuses the same wrapper as the CLI.
+
 ## Two ways to use it
 
 **1. Command-line converter.** `vst3-to-clap <plugin.vst3>` copies the wrapper and writes
