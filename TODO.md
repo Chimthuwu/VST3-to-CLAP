@@ -56,3 +56,11 @@ repo; prebuilt binaries are gitignored and ship as Release assets instead.
 - Version is `1.0.1` in `CMakeLists.txt` despite macOS/Windows being untested
   in a host. Worth a `0.x` line instead? v1.0.0 was the initial drop (Linux +
   MinGW Windows); v1.0.1 is the first release built entirely by CI.
+
+=== PROPOSED IMPROVEMENTS ===
+- [FEATURE] Build .clap converter script (scripts/convert-vst3-to-clap.sh) for overnight /sesh batch conversion.
+- [PERF] Cache CMake build artifacts (cmake -B build -S . with -DCMAKE_BUILD_TYPE=Release); overnight runs should not rebuild.
+- [BUG] Verify 	ests/ pass before /nitesesh; if any test fails, abort and log.
+- [SESH] Ready: m-setup.sh present; CMakeLists.txt configured.
+- [NITESH] Add 
+itesesh/ with un-cmake.sh (auto-compile + convert loop).
