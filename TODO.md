@@ -64,3 +64,6 @@ repo; prebuilt binaries are gitignored and ship as Release assets instead.
 - [SESH] Ready: m-setup.sh present; CMakeLists.txt configured.
 - [NITESH] Add 
 itesesh/ with un-cmake.sh (auto-compile + convert loop).
+
+## Inbox (agent-proposed)
+
